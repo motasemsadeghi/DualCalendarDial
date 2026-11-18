@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141416">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="تقویم">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>تقویم کمانی</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f1ea;--fg:#1d1d1f;--mute:#6b6b70;--sec:#d13b2e;--tile:#fffdf8;--tick:#9a9a9f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64}}
+:root[data-theme="dark"]{--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:Vazirmatn,Tahoma,sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:16px;min-height:100vh}
+svg{width:min(96vw,92vh,720px);height:auto;display:block;direction:ltr;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
+.frame{fill:var(--tile);stroke:var(--fg);stroke-width:5}
+.arc{fill:none;stroke:var(--fg);stroke-width:2.5}
+.tk{stroke:var(--tick);stroke-width:1.2}
+.lbl{font-size:9px;fill:var(--fg);text-anchor:middle;dominant-baseline:central;transition:font-size .3s}
+.wd{direction:ltr;unicode-bidi:bidi-override}
+.lbl.off{fill:var(--tick);opacity:.55}
+.tk.off{opacity:.25}
+.lbl.act{font-size:12px;font-weight:700;fill:var(--fg)}
+.hand{stroke-linecap:round}
+.tip{stroke:var(--tile);stroke-width:2}
+</style>
+</head>
+<body>
+<svg viewBox="0 0 400 400" id="svg" role="img" aria-label="تقویم"></svg>
+<script>
+const NS="http://www.w3.org/2000/svg",svg=document.getElementById("svg");
+const el=(n,a,p)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e};
+const fa=n=>Number(n).toLocaleString("fa-IR",{useGrouping:false});
+const PA=[33,367],PB=[367,33];
+// dial A: from east (a=0) counter-clockwise to north (a=90); dial B: from south (a=0) clockwise to west (a=90)
+const pos=(D,r,a)=>{const t=a*Math.PI/180;return D==="A"?[PA[0]+r*Math.cos(t),PA[1]-r*Math.sin(t)]:[PB[0]-r*Math.sin(t),PB[1]+r*Math.cos(t)]};
+const WD=["ش","ش۱","ش۲","ش۳","ش۴","ش۵","ج"];
+const S=[
+ {id:"wd",D:"A",r:100,n:7, lab:i=>WD[i],col:"var(--mute)",w:4},
+ {id:"jd",D:"A",r:165,n:31,lab:i=>fa(i+1),col:"var(--fg)",w:4},
+ {id:"gd",D:"A",r:230,n:31,lab:i=>String(i+1),col:"var(--sec)",w:4},
+ {id:"jm",D:"B",r:120,n:12,lab:i=>fa(i+1),col:"var(--fg)",w:4},
+ {id:"gm",D:"B",r:185,n:12,lab:i=>String(i+1),col:"var(--sec)",w:4}];
+el("rect",{x:6,y:6,width:388,height:388,rx:44,class:"frame"});
+for(const s of S){
+  const P=s.D==="A"?PA:PB,r=s.r;
+  el("path",{d:s.D==="A"?`M ${P[0]+r} ${P[1]} A ${r} ${r} 0 0 0 ${P[0]} ${P[1]-r}`:`M ${P[0]} ${P[1]+r} A ${r} ${r} 0 0 1 ${P[0]-r} ${P[1]}`,class:"arc"});
+  s.labels=[];s.ticks=[];
+  for(let i=0;i<s.n;i++){
+    const a=90*i/(s.n-1),p1=pos(s.D,r,a),p2=pos(s.D,r-6,a),pl=pos(s.D,r+13,a);
+    s.ticks.push(el("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],class:"tk"}));
+    const t=el("text",{x:pl[0],y:pl[1],class:s.id==="wd"?"lbl wd":"lbl"});t.textContent=s.lab(i);s.labels.push(t);
+  }
+}
+for(const s of S){
+  s.hand=el("line",{class:"hand",stroke:s.col,"stroke-width":s.w});
+  s.tip=el("circle",{r:6,fill:s.col,class:"tip"});
+  s.disp=null;s.cur=-1;
+}
+for(const P of [PA,PB]){
+  el("circle",{cx:P[0],cy:P[1],r:12,fill:"var(--tile)",stroke:"var(--fg)","stroke-width":3.5});
+  el("circle",{cx:P[0],cy:P[1],r:3.5,fill:"var(--sec)"});
+}
+const fmt=new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn",{year:"numeric",month:"numeric",day:"numeric"});
+function dates(){
+  const d=new Date(),P=fmt.formatToParts(d),g=t=>+P.find(x=>x.type===t).value;
+  return {wd:(d.getDay()+1)%7+1,jd:g("day"),gd:d.getDate(),jm:g("month"),gm:d.getMonth()+1};
+}
+function jLen(){
+  const n=new Date();let last=0,m0=null;
+  for(let k=0;k<32;k++){
+    const d=new Date(n.getFullYear(),n.getMonth(),n.getDate()+k,12),P=fmt.formatToParts(d),g=t=>+P.find(x=>x.type===t).value,m=g("month");
+    if(m0===null)m0=m;if(m!==m0)break;last=g("day");
+  }
+  return last;
+}
+function setLens(){
+  const n=new Date(),L={jd:jLen(),gd:new Date(n.getFullYear(),n.getMonth()+1,0).getDate()};
+  for(const s of S){if(!L[s.id])continue;
+    s.labels.forEach((t,i)=>t.classList.toggle("off",i>=L[s.id]));
+    s.ticks.forEach((t,i)=>t.classList.toggle("off",i>=L[s.id]));}
+}
+let lastKey="";
+function frame(){
+  const D=dates(),key=D.jm+"/"+D.jd+"/"+D.gm+"/"+D.gd;
+  if(key!==lastKey){lastKey=key;setLens();}
+  for(const s of S){
+    const idx=D[s.id]-1,t=90*idx/(s.n-1);
+    if(s.cur!==idx){
+      if(s.cur>=0)s.labels[s.cur].classList.remove("act");
+      s.labels[idx].classList.add("act");s.cur=idx;
+      if(s.disp===null)s.disp=t;
+    }
+    s.disp=Math.abs(s.disp-t)>.05?s.disp+(t-s.disp)*.07:t;
+    const P=s.D==="A"?PA:PB,p=pos(s.D,s.r,s.disp);
+    s.hand.setAttribute("x1",P[0]);s.hand.setAttribute("y1",P[1]);s.hand.setAttribute("x2",p[0]);s.hand.setAttribute("y2",p[1]);
+    s.tip.setAttribute("cx",p[0]);s.tip.setAttribute("cy",p[1]);
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
